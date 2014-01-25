@@ -96,7 +96,7 @@ int CommandPrefix(int insert_length, int copy_length) {
   int copy_prefix = CopyLengthPrefix(copy_length);
   int range_idx = 3 * (insert_prefix >> 3) + (copy_prefix >> 3);
   return ((kInsertAndCopyRangeLut[range_idx] << 6) +
-          ((insert_prefix & 7) << 3) + (copy_prefix & 7));
+          ((insert_prefix & 7)) + ((copy_prefix & 7) << 3));
 }
 
 int InsertLengthExtraBits(int code) {

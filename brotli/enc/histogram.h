@@ -17,6 +17,7 @@
 #ifndef BROTLI_ENC_HISTOGRAM_H_
 #define BROTLI_ENC_HISTOGRAM_H_
 
+#include <cassert>
 #include <stdint.h>
 #include <string.h>
 #include <vector>
@@ -40,10 +41,12 @@ struct Histogram {
     total_count_ = 0;
   }
   void Add(int val) {
+    assert(0 <= val && val < kDataSize);
     ++data_[val];
     ++total_count_;
   }
   void Remove(int val) {
+    assert(0 <= val && val < kDataSize);
     --data_[val];
     --total_count_;
   }
@@ -51,7 +54,10 @@ struct Histogram {
   void Add(const DataType *p, size_t n) {
     total_count_ += n;
     n += 1;
-    while(--n) ++data_[*p++];
+    while(--n) {
+        assert(0 <= *p && *p < kDataSize);
+        ++data_[*p++];
+    }
   }
   void AddHistogram(const Histogram& v) {
     total_count_ += v.total_count_;
