@@ -61,8 +61,9 @@ struct Histogram {
   }
   void AddHistogram(const Histogram& v) {
     total_count_ += v.total_count_;
+    const int * __restrict that_data = v.data_;
     for (int i = 0; i < kDataSize; ++i) {
-      data_[i] += v.data_[i];
+      data_[i] += that_data[i];
     }
   }
   double EntropyBitCost() const {

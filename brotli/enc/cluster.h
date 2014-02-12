@@ -92,9 +92,8 @@ void CompareAndPushToHeap(const Histogram<kSize>* out,
         std::max(0.0, (*pairs)[0].cost_diff);
     Histogram<kSize> combo = out[idx1];
     combo.AddHistogram(out[idx2]);
-    double cost_combo = PopulationCost(combo);
-    if (cost_combo < threshold - p.cost_diff) {
-      p.cost_combo = cost_combo;
+    p.cost_combo = PopulationCost(combo);
+    if (p.cost_combo + p.cost_diff < threshold) {
       store_pair = true;
     }
   }
@@ -192,8 +191,8 @@ double HistogramBitCostDistance(const Histogram<kSize>& histogram,
 // Find the best 'out' histogram for each of the 'in' histograms.
 // Note: we assume that out[]->bit_cost_ is already up-to-date.
 template<int kSize>
-void HistogramRemap(const Histogram<kSize>* in, int in_size,
-                    Histogram<kSize>* out, int* symbols) {
+void HistogramRemap(const Histogram<kSize>* __restrict in, int in_size,
+                    Histogram<kSize>* __restrict out, int* symbols) {
   std::set<int> all_symbols;
   for (int i = 0; i < in_size; ++i) {
     all_symbols.insert(symbols[i]);
