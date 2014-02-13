@@ -269,49 +269,78 @@ class HashLongestMatch {
         match_found = true;
       }
     }
-    for (int i = num_[key] - 1; i >= down; --i) {
-      int prev_ix = bucket[i & kBlockMask];
-      if (prev_ix < 0) {
-        continue;
-      } else {
-        const size_t backward = cur_ix - prev_ix;
-        if (PREDICT_FALSE(backward > max_backward)) {
-          break;
-        }
-        prev_ix &= ring_buffer_mask;
-        if (cur_ix_masked + best_len > ring_buffer_mask ||
-            prev_ix + best_len > ring_buffer_mask ||
-            data[cur_ix_masked + best_len] != data[prev_ix + best_len]) {
+    int last_diff = 100;
+    for(int i = num_[key] - 1; i >= down; --i) {
+      /*int j = i;
+      int init_j = i;
+      for (; j >= down && j >= i - last_diff; --j) {
+        int prev_ix = bucket[j & kBlockMask];
+        if (prev_ix < 0) {
           continue;
+        } else {
+          const size_t backward = cur_ix - prev_ix;
+          if (PREDICT_FALSE(backward > max_backward)) {
+            break;
+          }
+          prev_ix &= ring_buffer_mask;
+          if (prev_ix + best_len < ring_buffer_mask) {
+            __builtin_prefetch(&data[prev_ix + best_len]);
+          }
         }
-        const size_t len =
+      }*/
+        int j = down;
+        for(int k=0;k<5 && i > down + k;k++)
+              __builtin_prefetch(&data[bucket[(i-k) & kBlockMask] & ring_buffer_mask + best_len]);
+      for (; i >= down && i > j; --i) {
+        int prev_ix = bucket[i & kBlockMask];
+        if (prev_ix < 0) {
+          continue;
+        } else {
+          const size_t backward = cur_ix - prev_ix;
+          if (PREDICT_FALSE(backward > max_backward)) {
+            break;
+          }
+          prev_ix &= ring_buffer_mask;
+          if (cur_ix_masked + best_len > ring_buffer_mask ||
+              prev_ix + best_len > ring_buffer_mask ||
+              data[cur_ix_masked + best_len] != data[prev_ix + best_len]) {
+            continue;
+          }
+          if (i > down + 5)
+              __builtin_prefetch(&data[bucket[(i-5) & kBlockMask] & ring_buffer_mask + best_len]);
+          const size_t len =
             FindMatchLengthWithLimit(&data[prev_ix], &data[cur_ix_masked],
-                                     max_length);
-        if (len >= 3) {
-          // Comparing for >= 3 does not change the semantics, but just saves
-          // for a few unnecessary binary logarithms in backward reference
-          // score, since we are not interested in such short matches.
-          const double score = BackwardReferenceScore(average_cost_,
-                                                      start_cost4,
-                                                      start_cost3,
-                                                      start_cost2,
-                                                      len, backward,
-                                                      last_distance1_,
-                                                      last_distance2_,
-                                                      last_distance3_,
-                                                      last_distance4_);
-          if (best_score < score) {
-            best_score = score;
-            best_len = len;
-            best_ix = backward;
-            *best_len_out = best_len;
-            *best_len_code_out = best_len;
-            *best_distance_out = best_ix;
-            *best_score_out = best_score;
-            match_found = true;
+                max_length);
+          if (len >= 3) {
+            // Comparing for >= 3 does not change the semantics, but just saves
+            // for a few unnecessary binary logarithms in backward reference
+            // score, since we are not interested in such short matches.
+            const double score = BackwardReferenceScore(average_cost_,
+                start_cost4,
+                start_cost3,
+                start_cost2,
+                len, backward,
+                last_distance1_,
+                last_distance2_,
+                last_distance3_,
+                last_distance4_);
+            if (best_score < score) {
+  //            bool changed = best_len > len + 32;
+              best_score = score;
+              best_len = len;
+              best_ix = backward;
+              *best_len_out = best_len;
+              *best_len_code_out = best_len;
+              *best_distance_out = best_ix;
+              *best_score_out = best_score;
+              match_found = true;
+    //          if (changed)
+      //          break;
+            }
           }
         }
       }
+//      last_diff = std::min(100, init_j - i);
     }
     return match_found;
   }
