@@ -73,6 +73,14 @@ struct Histogram {
     }
     return retval;
   }
+  int EntropyBitCostLowerBound() const {
+    int retval = total_count_ * Log2Floor(total_count_);
+    for (int i = 0; i < kDataSize; ++i) {
+      retval -= data_[i] * Log2Ceiling(data_[i]);
+    }
+    return retval;
+  }
+
 
   int data_[kDataSize];
   int total_count_;

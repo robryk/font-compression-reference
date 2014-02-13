@@ -37,8 +37,8 @@ struct HistogramPair {
   int idx1;
   int idx2;
   bool valid;
-  double cost_combo;
-  double cost_diff;
+  int cost_combo;
+  int cost_diff;
 };
 
 struct HistogramPairComparator {
@@ -53,8 +53,8 @@ struct HistogramPairComparator {
 // Returns entropy reduction of the context map when we combine two clusters.
 inline double ClusterCostDiff(int size_a, int size_b) {
   int size_c = size_a + size_b;
-  return size_a * FastLog2(size_a) + size_b * FastLog2(size_b) -
-      size_c * FastLog2(size_c);
+  return size_a * Log2Floor(size_a) + size_b * Log2Floor(size_b) -
+      size_c * Log2Floor(size_c);
 }
 
 // Computes the bit cost reduction by combining out[idx1] and out[idx2] and if
@@ -62,7 +62,7 @@ inline double ClusterCostDiff(int size_a, int size_b) {
 template<int kSize>
 void CompareAndPushToHeap(const Histogram<kSize>* out,
                           const int* cluster_size,
-                          int idx1, int idx2,
+                          int idx1, int idx2, bool exact, int threshold,
                           std::vector<HistogramPair>* pairs) {
   if (idx1 == idx2) {
     return;
@@ -88,11 +88,15 @@ void CompareAndPushToHeap(const Histogram<kSize>* out,
     p.cost_combo = out[idx1].bit_cost_;
     store_pair = true;
   } else {
-    double threshold = pairs->empty() ? 1e99 :
-        std::max(0.0, (*pairs)[0].cost_diff);
+    threshold = std::min(threshold,
+    pairs->empty() ? ((int)1e9) :
+        std::max(0, (*pairs)[0].cost_diff));
     Histogram<kSize> combo = out[idx1];
     combo.AddHistogram(out[idx2]);
-    p.cost_combo = PopulationCost(combo);
+    if (exact)
+        p.cost_combo = PopulationCost(combo);
+    else
+        p.cost_combo = PopulationCostLowerBound(combo);
     if (p.cost_combo + p.cost_diff < threshold) {
       store_pair = true;
     }
@@ -122,15 +126,28 @@ void HistogramCombine(Histogram<kSize>* out,
   }
 
   // We maintain a heap of histogram pairs, ordered by the bit cost reduction.
+  std::vector<HistogramPair> pairs_approx;
   std::vector<HistogramPair> pairs;
   for (int idx1 = 0; idx1 < clusters.size(); ++idx1) {
     for (int idx2 = idx1 + 1; idx2 < clusters.size(); ++idx2) {
-      CompareAndPushToHeap(out, cluster_size, clusters[idx1], clusters[idx2],
-                           &pairs);
+      CompareAndPushToHeap(out, cluster_size, clusters[idx1], clusters[idx2], false, 1e9,
+                           &pairs_approx);
     }
   }
 
   while (clusters.size() > min_cluster_size) {
+    //fprintf(stderr, "clusters.size()=%ld min_size=%ld pairs_approx.size()=%ld pairs.size()=%ld\n", clusters.size(), (long)min_cluster_size, pairs_approx.size(), pairs.size());
+    while (!pairs_approx.empty() && (pairs.empty() || pairs_approx[0].cost_diff < pairs[0].cost_diff)) {
+        if (pairs_approx[0].valid) {
+            int idx1 = pairs_approx[0].idx1;
+            int idx2 = pairs_approx[0].idx2;
+            CompareAndPushToHeap(out, cluster_size, idx1, idx2, true, 1e9, &pairs);
+        }
+        pop_heap(pairs_approx.begin(), pairs_approx.end(), HistogramPairComparator());
+        pairs_approx.pop_back();
+    }
+    //fprintf(stderr, "pairs_approx.size()=%ld pairs.size()=%ld\n", pairs_approx.size(), pairs.size());
+    assert(!pairs.empty());
     if (pairs[0].cost_diff >= cost_diff_threshold) {
       cost_diff_threshold = 1e99;
       min_cluster_size = max_clusters;
@@ -161,14 +178,27 @@ void HistogramCombine(Histogram<kSize>* out,
         p.valid = false;
       }
     }
+    for (int i = 0; i < pairs_approx.size(); ++i) {
+      HistogramPair& p = pairs_approx[i];
+      if (p.idx1 == best_idx1 || p.idx2 == best_idx1 ||
+          p.idx1 == best_idx2 || p.idx2 == best_idx2) {
+        p.valid = false;
+      }
+    }
+
     // Pop invalid pairs from the top of the heap.
     while (!pairs.empty() && !pairs[0].valid) {
       pop_heap(pairs.begin(), pairs.end(), HistogramPairComparator());
       pairs.pop_back();
     }
+    while (!pairs_approx.empty() && !pairs_approx[0].valid) {
+      pop_heap(pairs_approx.begin(), pairs_approx.end(), HistogramPairComparator());
+      pairs_approx.pop_back();
+    }
     // Push new pairs formed with the combined histogram to the heap.
+    int thr =1e9; if (!pairs.empty()) thr=std::max(0,pairs[0].cost_diff);
     for (int i = 0; i < clusters.size(); ++i) {
-      CompareAndPushToHeap(out, cluster_size, best_idx1, clusters[i], &pairs);
+      CompareAndPushToHeap(out, cluster_size, best_idx1, clusters[i], false, thr, &pairs_approx);
     }
   }
 }

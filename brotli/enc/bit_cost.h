@@ -102,7 +102,7 @@ static inline int HuffmanBitCost(const uint8_t* depth, int length) {
 }
 
 template<int kSize>
-double PopulationCost(const Histogram<kSize>& histogram) {
+int PopulationCost(const Histogram<kSize>& histogram) {
   if (histogram.total_count_ == 0) {
     return 12;
   }
@@ -132,6 +132,35 @@ double PopulationCost(const Histogram<kSize>& histogram) {
     bits += HuffmanBitCost(depth, kSize);
   }
   return bits;
+}
+
+template<int kSize>
+int PopulationCostLowerBound(const Histogram<kSize>& histogram) {
+  if (histogram.total_count_ == 0) {
+    return 12;
+  }
+  int count = 0;
+  for (int i = 0; i < kSize; ++i) {
+    if (histogram.data_[i] > 0) {
+      ++count;
+    }
+  }
+  if (count == 1) {
+    return 12;
+  }
+  if (count == 2) {
+    return 20 + histogram.total_count_;
+  }
+  int bits_lower = histogram.EntropyBitCostLowerBound();
+  if (count == 3) {
+    return bits_lower + 28;
+  } else if (count == 4) {
+    return bits_lower + 37;
+  } else {
+    // max: 6 + 3 * 15 + 4 * max_value
+    // min: 9
+    return bits_lower + 9;
+  }
 }
 
 }  // namespace brotli
