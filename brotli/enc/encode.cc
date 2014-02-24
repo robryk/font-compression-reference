@@ -769,6 +769,7 @@ BrotliCompressor::BrotliCompressor()
       input_pos_(0),
       ringbuffer_(kRingBufferBits, kMetaBlockSizeBits),
       literal_cost_(1 << kRingBufferBits),
+      pref_literal_cost_(1 << kRingBufferBits),
       storage_ix_(0),
       storage_(new uint8_t[2 << kMetaBlockSizeBits]) {
   dist_ringbuffer_[0] = 16;
@@ -776,6 +777,7 @@ BrotliCompressor::BrotliCompressor()
   dist_ringbuffer_[2] = 11;
   dist_ringbuffer_[3] = 4;
   storage_[0] = 0;
+  pref_literal_cost_[0] = 0.0;
 }
 
 BrotliCompressor::~BrotliCompressor() {
@@ -803,10 +805,11 @@ void BrotliCompressor::WriteMetaBlock(const size_t input_size,
     ringbuffer_.Write(input_buffer, input_size);
     EstimateBitCostsForLiterals(input_pos_, input_size,
                                 kRingBufferMask, ringbuffer_.start(),
-                                &literal_cost_[0]);
+                                &literal_cost_[0], &pref_literal_cost_[0]);
     CreateBackwardReferences(input_size, input_pos_,
                              ringbuffer_.start(),
                              &literal_cost_[0],
+                             &pref_literal_cost_[0],
                              kRingBufferMask, kMaxBackwardDistance,
                              hasher_,
                              &commands);

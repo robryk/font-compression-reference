@@ -57,6 +57,7 @@ class BrotliCompressor {
   size_t input_pos_;
   RingBuffer ringbuffer_;
   std::vector<float> literal_cost_;
+  std::vector<float> pref_literal_cost_;
   int storage_ix_;
   uint8_t* storage_;
 };
