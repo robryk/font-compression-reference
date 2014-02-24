@@ -27,6 +27,7 @@ void CreateBackwardReferences(size_t num_bytes,
                               size_t position,
                               const uint8_t* ringbuffer,
                               const float* literal_cost,
+                              const float* pref_literal_cost,
                               size_t ringbuffer_mask,
                               const size_t max_backward_limit,
                               Hasher* hasher,
@@ -53,7 +54,7 @@ void CreateBackwardReferences(size_t num_bytes,
     size_t max_distance = std::min(i + i_diff, max_backward_limit);
     hasher->set_insert_length(insert_length);
     bool match_found = hasher->FindLongestMatch(
-        ringbuffer, literal_cost, ringbuffer_mask,
+        ringbuffer, literal_cost, pref_literal_cost, ringbuffer_mask,
         i + i_diff, i_end - i, max_distance,
         &best_len, &best_len_code, &best_dist, &best_score);
     if (match_found) {
@@ -68,7 +69,7 @@ void CreateBackwardReferences(size_t num_bytes,
         max_distance = std::min(i + i_diff + 1, max_backward_limit);
         hasher->Store(ringbuffer + i, i + i_diff);
         match_found = hasher->FindLongestMatch(
-            ringbuffer, literal_cost, ringbuffer_mask,
+            ringbuffer, literal_cost, pref_literal_cost, ringbuffer_mask,
             i + i_diff + 1, i_end - i - 1, max_distance,
             &best_len_2, &best_len_code_2, &best_dist_2, &best_score_2);
         double cost_diff_lazy = 0;

@@ -24,7 +24,7 @@
 namespace brotli {
 
 void EstimateBitCostsForLiterals(size_t pos, size_t len, size_t mask,
-                                 const uint8_t *data, float *cost) {
+                                 const uint8_t *data, float *cost, float* pref_cost) {
   int histogram[256] = { 0 };
   int window_half = 2000;
   int in_window = std::min(static_cast<size_t>(window_half), len);
@@ -37,6 +37,7 @@ void EstimateBitCostsForLiterals(size_t pos, size_t len, size_t mask,
   for(int i=0;i<256;i++)
       histo_values.insert(std::make_pair(histogram[i], i));
 
+  pref_cost[pos & mask] = 0.0;
   // Compute bit costs with sliding window.
   for (int i = 0; i < len; ++i) {
     if (i - window_half >= 0) {
@@ -69,6 +70,7 @@ void EstimateBitCostsForLiterals(size_t pos, size_t len, size_t mask,
         cost[masked_pos] = log2(static_cast<double>(in_window) / histo);
         cost[masked_pos] += 0.029;
     }
+    pref_cost[(pos + i + 1) & mask] = pref_cost[masked_pos] + cost[masked_pos];
   }
 }
 

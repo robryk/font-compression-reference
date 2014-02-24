@@ -18,6 +18,7 @@
 #ifndef BROTLI_ENC_HASH_H_
 #define BROTLI_ENC_HASH_H_
 
+#include <assert.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
@@ -64,6 +65,8 @@ inline double BackwardReferenceScore(double average_cost,
                                      double start_cost4,
                                      double start_cost3,
                                      double start_cost2,
+                                     const float* pref_literal_cost,
+                                     int idx, int mask,
                                      int copy_length,
                                      int backward_reference_offset,
                                      int last_distance1,
@@ -71,11 +74,16 @@ inline double BackwardReferenceScore(double average_cost,
                                      int last_distance3,
                                      int last_distance4) {
   double retval = 0;
-  switch (copy_length) {
+  /*switch (copy_length) {
     case 2: retval = start_cost2; break;
     case 3: retval = start_cost3; break;
     default: retval = start_cost4 + (copy_length - 4) * average_cost; break;
-  }
+  }*/
+  double a = pref_literal_cost[(idx + 2) & mask] - pref_literal_cost[idx & mask];
+  fprintf(stderr, "COST2 %lf %lf %lf\n", a, start_cost2, pref_literal_cost[(idx + 2) & mask]);
+  assert(fabs(a - start_cost2) <= 0.001);
+  retval = pref_literal_cost[(idx + copy_length) & mask] - pref_literal_cost[idx & mask];
+  assert(retval > 0.0);
   int diff_last1 = abs(backward_reference_offset - last_distance1);
   int diff_last2 = abs(backward_reference_offset - last_distance2);
   if (diff_last1 == 0) {
@@ -143,6 +151,7 @@ class HashLongestMatch {
   // Write the score of the best match into best_score_out.
   bool FindLongestMatch(const uint8_t * __restrict data,
                         const float * __restrict literal_cost,
+                        const float * __restrict pref_literal_cost,
                         const size_t ring_buffer_mask,
                         const uint32_t cur_ix,
                         uint32_t max_length,
@@ -221,6 +230,8 @@ class HashLongestMatch {
                                                     start_cost4,
                                                     start_cost3,
                                                     start_cost2,
+                                                    pref_literal_cost,
+                                                    cur_ix, ring_buffer_mask,
                                                     len, backward,
                                                     last_distance1_,
                                                     last_distance2_,
@@ -295,6 +306,8 @@ class HashLongestMatch {
                                                       start_cost4,
                                                       start_cost3,
                                                       start_cost2,
+                                                      pref_literal_cost,
+                                                      cur_ix, ring_buffer_mask,
                                                       len, backward,
                                                       last_distance1_,
                                                       last_distance2_,
